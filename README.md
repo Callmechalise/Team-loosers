@@ -1,8 +1,8 @@
-\# Team-loosers
+ # Team-loosers
 
 
 
-\## Project Name: ElderGuard
+ ## Project Name: ElderGuard
 
 
 
@@ -10,11 +10,11 @@ A comprehensive healthcare and safety monitoring system for elderly individuals.
 
 
 
-\---
+ ---
 
 
 
-\## 👥 Team Members
+ ## 👥 Team Members
 
 
 
@@ -22,45 +22,45 @@ A comprehensive healthcare and safety monitoring system for elderly individuals.
 
 |------|------|
 
-| \*\*Pabitra Kumar Chalise\*\* | Team Lead |
+|  * *Pabitra Kumar Chalise * * | Team Lead |
 
-| \*\*Biplov Sedhai\*\* | Member |
+|  * *Biplov Sedhai * * | Member |
 
-| \*\*Suraj Amgain\*\* | Member |
+|  * *Suraj Amgain * * | Member |
 
-| \*\*Nabin Basnet\*\* | Member |
-
-
-
-\---
+|  * *Nabin Basnet * * | Member |
 
 
 
-\## 📋 About The Project
+ ---
 
 
 
-\*\*ElderGuard\*\* is a healthcare monitoring system designed to enhance the safety and well-being of elderly individuals through modern technology.
+ ## 📋 About The Project
 
 
 
-\---
+ * *ElderGuard * * is a healthcare monitoring system designed to enhance the safety and well-being of elderly individuals through modern technology.
 
 
 
-\## 🚀 Getting Started
+ ---
 
 
 
-\### Prerequisites
-
-\- Git
-
-\- Code Editor (VS Code recommended)
+ ## 🚀 Getting Started
 
 
 
-\### Clone the repository
+ ### Prerequisites
+
+ - Git
+
+ - Code Editor (VS Code recommended)
+
+
+
+ ### Clone the repository
 
 ```bash
 
