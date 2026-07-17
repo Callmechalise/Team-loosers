@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ResidentsModule } from './modules/residents/residents.module';
@@ -8,6 +8,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { CaretakersModule } from './modules/caretakers/caretakers.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { IotModule } from './modules/iot/iot.module';
 import databaseConfig from './config/database.config';
 
 @Module({
@@ -30,6 +31,7 @@ import databaseConfig from './config/database.config';
     ActivitiesModule,
     CaretakersModule,
     DashboardModule,
+    IotModule,  // <-- ADD THIS LINE
   ],
 })
 export class AppModule {}
