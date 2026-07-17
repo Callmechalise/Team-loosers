@@ -2,250 +2,281 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
-#include "MAX30105.h"
-#include "heartRate.h"
+#include "MAX30100_PulseOximeter.h"
+
+//pinout
+int sda = 21;
+int scl = 22; 
+int interrupt = 5;
+int alertbtn = 4;  // CHANGED: Use GPIO 4 instead of 2 (avoid conflict with built-in LED)
 
 //spo2 ko lagi variable
 #define debug Serial
-MAX30105 particleSensor;
-long redValue = 0;
-long irValue = 0;
+PulseOximeter pox;
+
 float spo2Value = 0.0;
-bool fingerDetected = false;
-
-// Heart rate calculation ko lagi variables
-const uint8_t RATE_SIZE = 4;  // Increase this for more averaging
-uint8_t rates[RATE_SIZE];
-uint8_t rateSpot = 0;
-long lastBeat = 0; // Time at which the last beat occurred
 float heartRate = 0.0;
-
-
-
-int sda = 20;
-int scl = 21;
-int interrupt = 5;
+bool fingerDetected = false;
 
 const char* ssid = "Galaxy F22";
 const char* password = "11111111";
-
 const char* serverURL = "http://192.168.63.12:8000/data";
 
+// Non-blocking timing variables
+unsigned long lastUpdateTime = 0;
+unsigned long lastSendTime = 0;
+const unsigned long UPDATE_INTERVAL = 20;    // Update sensor every 20ms
+const unsigned long SEND_INTERVAL = 10000;   // Send data every 10 seconds
 
-// ============ SETUP FUNCTION ============
+// Data averaging variables
+float spo2Sum = 0;
+float hrSum = 0;
+int sampleCount = 0;
+const int SAMPLES_PER_SEND = 500;  // 500 samples * 20ms = 10 seconds
+
+// Button debouncing variables
+bool lastButtonState = HIGH;
+bool buttonPressed = false;
+unsigned long lastDebounceTime = 0;
+const unsigned long DEBOUNCE_DELAY = 50;
+
+// Track if alert was already sent
+bool alertSent = false;
+
+void onBeatDetected()
+{
+  fingerDetected = true;
+}
+
 void setup_sensor()
 {
   debug.begin(115200);
-  debug.println("Initializing MAX30102...");
+  debug.println("Initializing MAX30100...");
 
-  if (particleSensor.begin() == false)
-  {
-    debug.println("MAX30102 not found. Check wiring!");
-    while (1);
+  Wire.begin(sda, scl);
+  
+  // Try multiple times to initialize
+  bool initialized = false;
+  for(int attempt = 0; attempt < 3; attempt++) {
+    if (pox.begin()) {
+      initialized = true;
+      break;
+    }
+    debug.println("Retry initialization...");
+    delay(1000);
   }
-
-  particleSensor.setup();
-  particleSensor.setPulseAmplitudeRed(0x0A);
-  particleSensor.setPulseAmplitudeGreen(0);
-  for (uint8_t i = 0; i < RATE_SIZE; i++)
-  {
-    rates[i] = 0;
+  
+  if (!initialized) {
+    debug.println("MAX30100 not found. Check wiring!");
+    while(1);
   }
+  
+  pox.setIRLedCurrent(MAX30100_LED_CURR_50MA);
+  pox.setOnBeatDetectedCallback(onBeatDetected);
   
   debug.println("Sensor ready!");
-  
 }
-
-
 
 void setup_wifi() {
-
-  delay(10);
-
   Serial.println();
   Serial.print("Connecting to WiFi");
-
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED) {
-
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
     delay(500);
     Serial.print(".");
+    attempts++;
   }
 
-  Serial.println();
-
-  Serial.println("WiFi Connected!");
-
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  if(WiFi.status() == WL_CONNECTED) {
+    Serial.println();
+    Serial.println("WiFi Connected!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("WiFi Connection Failed!");
+  }
 }
 
-
-
-void sendJSON(String cardID, float heartrate, float spo2)
+void sendStatusWithMessage(String cardID, bool status, String message, float heartrate = 0, float spo2 = 0)
 {
-
-  StaticJsonDocument<256> doc;
-
-
+  if(WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi Disconnected - Cannot send data");
+    return;
+  }
+  
+  // Increase JSON size to accommodate additional fields
+  StaticJsonDocument<512> doc;
   doc["card_id"] = cardID;
-  doc["heartrate"] = heartrate;
-  doc["spo2"] = spo2;
+  doc["status"] = status;           // Boolean value
+  doc["message"] = message;         // String message
+  doc["heartrate"] = heartrate;     // Optional: include heartrate if provided
+  doc["spo2"] = spo2;              // Optional: include spo2 if provided
   doc["timestamp"] = millis();
 
-
   String jsonBuffer;
-
   serializeJson(doc, jsonBuffer);
 
+  HTTPClient http;
+  http.begin(serverURL);
+  http.addHeader("Content-Type", "application/json");
 
+  int httpResponseCode = http.POST(jsonBuffer);
 
-  if(WiFi.status() == WL_CONNECTED)
-  {
-
-    HTTPClient http;
-
-
-    http.begin(serverURL);
-
-    http.addHeader(
-      "Content-Type",
-      "application/json"
-    );
-
-
-    int httpResponseCode = http.POST(jsonBuffer);
-
-
-
-    if(httpResponseCode > 0)
-    {
-
-      Serial.print("HTTP Response Code: ");
-
-      Serial.println(httpResponseCode);
-
-
-      Serial.println("JSON Sent:");
-
-      Serial.println(jsonBuffer);
-
-    }
-    else
-    {
-
-      Serial.print("HTTP Error: ");
-
-      Serial.println(httpResponseCode);
-
-    }
-
-
-    http.end();
-
+  if(httpResponseCode > 0) {
+    Serial.print("HTTP Response Code: ");
+    Serial.println(httpResponseCode);
+    Serial.println("JSON Sent:");
+    Serial.println(jsonBuffer);
+  } else {
+    Serial.print("HTTP Error: ");
+    Serial.println(httpResponseCode);
   }
 
-  else
-  {
-
-    Serial.println("WiFi Disconnected");
-
-  }
-
+  http.end();
 }
 
 float get_spo2_data()
 {
-  redValue = particleSensor.getRed();
-  irValue = particleSensor.getIR();
-  
-  // Check finger presence
-  if (irValue < 50000)
-  {
-    fingerDetected = false;
-    return -1.0; // No finger
-  }
-  
-  fingerDetected = true;
-  
-  // Calculate SpO2
-  float R = (float)redValue / (float)irValue;
-  spo2Value = 104.0 - 17.0 * R;
-  
-  // Clamp values to realistic range (70-100%)
-  if (spo2Value > 100.0) spo2Value = 100.0;
-  if (spo2Value < 70.0) spo2Value = 70.0;
-  
+  spo2Value = pox.getSpO2();
+  if(spo2Value <= 0 || spo2Value > 100)
+    return 0;
   return spo2Value;
 }
 
-
-// ============ PULSE RATE FUNCTION ============
 float get_pulserate_data()
 {
-  irValue = particleSensor.getIR();
-  
-  // Check finger presence
-  if (irValue < 50000)
-  {
-    fingerDetected = false;
-    return -1.0; // No finger
-  }
-  
-  fingerDetected = true;
-  
-  // Detect a beat
-  if (checkForBeat(irValue) == true)
-  {
-    // We sensed a beat!
-    long delta = millis() - lastBeat;
-    lastBeat = millis();
-    
-    // Calculate beats per minute (BPM)
-    int bpm = 60 / (delta / 1000.0);
-    
-    // Add to the rate array for averaging
-    rates[rateSpot++] = (uint8_t)bpm;
-    rateSpot %= RATE_SIZE;
-    
-    // Calculate average heart rate
-    uint8_t sum = 0;
-    for (uint8_t i = 0; i < RATE_SIZE; i++)
-    {
-      sum += rates[i];
-    }
-    heartRate = sum / RATE_SIZE;
-  }
-  
+  heartRate = pox.getHeartRate();
+  if(heartRate <= 0 || heartRate > 250)
+    return 0;
   return heartRate;
 }
 
-
-
-/*bool is_finger_present()
-{
-  return fingerDetected;
-}*/
-
 void setup() {
-
+  // Setup button with internal pull-up
+  pinMode(alertbtn, INPUT_PULLUP);
+  
   Serial.begin(115200);
-
+  delay(1000);  // Give serial time to initialize
+  
   setup_sensor();
   setup_wifi();
-
+  
+  // Initialize timing variables
+  lastUpdateTime = millis();
+  lastSendTime = millis();
+  spo2Sum = 0;
+  hrSum = 0;
+  sampleCount = 0;
+  
+  Serial.println("System Ready! Place finger on sensor...");
+  Serial.println("Press button to send alert...");
 }
 
-
-
-void loop() {
-
-  float spo2 = get_spo2_data();
-  float heart_rate=get_pulserate_data();
-  sendJSON("Div001",heart_rate,spo2);
-
-
-  delay(5000);
-
+void loop()
+{
+  unsigned long currentMillis = millis();
+  
+  // ===== BUTTON HANDLING WITH DEBOUNCING =====
+  int reading = digitalRead(alertbtn);
+  
+  // Check if button state changed
+  if (reading != lastButtonState) {
+    lastDebounceTime = currentMillis;
+  }
+  
+  // Wait for debounce time to pass
+  if ((currentMillis - lastDebounceTime) > DEBOUNCE_DELAY) {
+    // Button state is stable
+    if (reading != buttonPressed) {
+      buttonPressed = reading;
+      
+      // Only trigger on button press (LOW because of pull-up)
+      if (buttonPressed == LOW) {
+        Serial.println("⚠️ ALERT BUTTON PRESSED! Sending alert...");
+        sendStatusWithMessage("Div001", true, "Emergency Alert!", 0, 0);
+        alertSent = true;
+        
+        // Blink built-in LED to show alert was sent
+        digitalWrite(2, HIGH);
+        delay(200);
+        digitalWrite(2, LOW);
+      } else {
+        // Button released
+        if (alertSent) {
+          Serial.println("Alert sent successfully");
+          alertSent = false;
+        }
+      }
+    }
+  }
+  
+  lastButtonState = reading;
+  
+  // ===== SENSOR READING =====
+  // Update sensor at regular intervals (non-blocking)
+  if (currentMillis - lastUpdateTime >= UPDATE_INTERVAL) {
+    lastUpdateTime = currentMillis;
+    pox.update();
+    
+    // Read current values
+    float spo2 = get_spo2_data();
+    float heart_rate = get_pulserate_data();
+    
+    // Accumulate valid readings
+    if (spo2 > 0 && heart_rate > 0) {
+      spo2Sum += spo2;
+      hrSum += heart_rate;
+      sampleCount++;
+      
+      // Print live data every 50 samples (about 1 second)
+      if (sampleCount % 50 == 0) {
+        Serial.print("SpO2: ");
+        Serial.print(spo2);
+        Serial.print("%  Pulse: ");
+        Serial.print(heart_rate);
+        Serial.println(" BPM");
+      }
+    } else {
+      // Show status if no finger detected
+      if (sampleCount > 0 && sampleCount % 100 == 0) {
+        Serial.println("Waiting for finger placement...");
+      }
+    }
+  }
+  
+  // ===== SEND AVERAGED DATA =====
+  if (currentMillis - lastSendTime >= SEND_INTERVAL && sampleCount > 0) {
+    lastSendTime = currentMillis;
+    
+    // Calculate averages
+    float avgSpO2 = spo2Sum / sampleCount;
+    float avgHR = hrSum / sampleCount;
+    
+    Serial.println("---- Sending Average Data ----");
+    Serial.print("SpO2: ");
+    Serial.print(avgSpO2);
+    Serial.println("%");
+    Serial.print("Heart Rate: ");
+    Serial.print(avgHR);
+    Serial.println(" BPM");
+    Serial.print("Samples: ");
+    Serial.println(sampleCount);
+    
+    // Send data to server
+    if (avgSpO2 > 0 && avgSpO2 <= 100 && avgHR > 0 && avgHR <= 250) {
+      sendStatusWithMessage("Div001", false, "Normal", avgHR, avgSpO2);
+    } else {
+      Serial.println("Invalid data - not sending");
+    }
+    
+    // Reset accumulators
+    spo2Sum = 0;
+    hrSum = 0;
+    sampleCount = 0;
+  }
+  
+  // Small delay to prevent watchdog timeout
+  delay(1);
 }
