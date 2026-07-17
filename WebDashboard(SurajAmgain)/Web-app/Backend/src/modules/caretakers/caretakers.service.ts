@@ -1,21 +1,38 @@
-import { Injectable } from '@nestjs/common';
-import { MOCK_CARETAKERS, MOCK_CARETAKER_PROFILE } from '../../common/constants/mock-data';
-import { Caretaker } from '../../common/types';
+﻿import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Caretaker, CaretakerDocument } from './schemas/caretaker.schema';
+import { MOCK_CARETAKERS } from '../../common/constants/mock-data';
 
 @Injectable()
 export class CaretakersService {
-  private caretakers: Caretaker[] = MOCK_CARETAKERS;
-  private profile: Caretaker = MOCK_CARETAKER_PROFILE;
+  constructor(
+    @InjectModel(Caretaker.name) private caretakerModel: Model<CaretakerDocument>,
+  ) {}
 
-  findAll(): Caretaker[] {
-    return this.caretakers;
+  async findAll(): Promise<Caretaker[]> {
+    return this.caretakerModel.find().exec();
   }
 
-  findOne(id: string): Caretaker | undefined {
-    return this.caretakers.find(caretaker => caretaker.id === id);
+  async findOne(id: string): Promise<Caretaker | null> {
+    try {
+      return this.caretakerModel.findById(id).exec();
+    } catch {
+      return null;
+    }
   }
 
-  getProfile(): Caretaker {
-    return this.profile;
+  async getProfile(): Promise<Caretaker | null> {
+    const caretakers = await this.caretakerModel.find().limit(1).exec();
+    return caretakers.length > 0 ? caretakers[0] : null;
+  }
+
+  async seedDatabase(): Promise<void> {
+    const count = await this.caretakerModel.countDocuments();
+    if (count === 0) {
+      const caretakersToInsert = MOCK_CARETAKERS.map(({ id, ...rest }) => rest);
+      await this.caretakerModel.insertMany(caretakersToInsert);
+      console.log('✅ Caretakers seeded successfully!');
+    }
   }
 }

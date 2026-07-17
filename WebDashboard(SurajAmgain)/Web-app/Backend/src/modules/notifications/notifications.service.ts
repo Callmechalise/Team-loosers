@@ -1,24 +1,41 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { NotificationItem, NotificationDocument } from './schemas/notification.schema';
 import { MOCK_NOTIFICATIONS } from '../../common/constants/mock-data';
-import { NotificationItem } from '../../common/types';
 
 @Injectable()
 export class NotificationsService {
-  private notifications: NotificationItem[] = MOCK_NOTIFICATIONS;
+  constructor(
+    @InjectModel(NotificationItem.name) private notificationModel: Model<NotificationDocument>,
+  ) {}
 
-  findAll(): NotificationItem[] {
-    return this.notifications;
+  async findAll(): Promise<NotificationItem[]> {
+    return this.notificationModel.find().exec();
   }
 
-  findOne(id: string): NotificationItem | undefined {
-    return this.notifications.find(notification => notification.id === id);
+  async findOne(id: string): Promise<NotificationItem | null> {
+    try {
+      return this.notificationModel.findById(id).exec();
+    } catch {
+      return null;
+    }
   }
 
-  getUnread(): NotificationItem[] {
-    return this.notifications.filter(notification => !notification.read);
+  async getUnread(): Promise<NotificationItem[]> {
+    return this.notificationModel.find({ read: false }).exec();
   }
 
-  getUnreadCount(): number {
-    return this.notifications.filter(notification => !notification.read).length;
+  async getUnreadCount(): Promise<number> {
+    return this.notificationModel.countDocuments({ read: false });
+  }
+
+  async seedDatabase(): Promise<void> {
+    const count = await this.notificationModel.countDocuments();
+    if (count === 0) {
+      const notificationsToInsert = MOCK_NOTIFICATIONS.map(({ id, ...rest }) => rest);
+      await this.notificationModel.insertMany(notificationsToInsert);
+      console.log('✅ Notifications seeded successfully!');
+    }
   }
 }

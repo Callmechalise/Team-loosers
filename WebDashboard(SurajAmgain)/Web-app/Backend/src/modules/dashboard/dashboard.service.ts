@@ -1,20 +1,36 @@
 ﻿import { Injectable } from '@nestjs/common';
-import { MOCK_RESIDENTS, MOCK_ALERTS, MOCK_FALLS, MOCK_NOTIFICATIONS, MOCK_ACTIVITIES } from '../../common/constants/mock-data';
+import { ResidentsService } from '../residents/residents.service';
+import { AlertsService } from '../alerts/alerts.service';
+import { FallsService } from '../falls/falls.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ActivitiesService } from '../activities/activities.service';
 
 @Injectable()
 export class DashboardService {
-  getDashboardSummary() {
-    // Calculate resident status counts
-    const healthy = MOCK_RESIDENTS.filter(r => r.status === 'healthy').length;
-    const warning = MOCK_RESIDENTS.filter(r => r.status === 'warning').length;
-    const emergency = MOCK_RESIDENTS.filter(r => r.status === 'emergency').length;
-    const total = MOCK_RESIDENTS.length;
+  constructor(
+    private readonly residentsService: ResidentsService,
+    private readonly alertsService: AlertsService,
+    private readonly fallsService: FallsService,
+    private readonly notificationsService: NotificationsService,
+    private readonly activitiesService: ActivitiesService,
+  ) {}
 
-    // Calculate vitals summary
-    const avgHeartRate = MOCK_RESIDENTS.reduce((acc, r) => acc + r.vitals.heartRate, 0) / total;
-    const avgTemperature = MOCK_RESIDENTS.reduce((acc, r) => acc + r.vitals.temperature, 0) / total;
-    const avgSpo2 = MOCK_RESIDENTS.reduce((acc, r) => acc + r.vitals.spo2, 0) / total;
-    const avgBattery = MOCK_RESIDENTS.reduce((acc, r) => acc + r.vitals.battery, 0) / total;
+  async getDashboardSummary() {
+    const residents = await this.residentsService.findAll();
+    const alerts = await this.alertsService.findAll();
+    const falls = await this.fallsService.findAll();
+    const notifications = await this.notificationsService.findAll();
+    const activities = await this.activitiesService.getRecent(5);
+
+    const healthy = residents.filter(r => r.status === 'healthy').length;
+    const warning = residents.filter(r => r.status === 'warning').length;
+    const emergency = residents.filter(r => r.status === 'emergency').length;
+    const total = residents.length;
+
+    const avgHeartRate = residents.reduce((acc, r) => acc + r.vitals.heartRate, 0) / total;
+    const avgTemperature = residents.reduce((acc, r) => acc + r.vitals.temperature, 0) / total;
+    const avgSpo2 = residents.reduce((acc, r) => acc + r.vitals.spo2, 0) / total;
+    const avgBattery = residents.reduce((acc, r) => acc + r.vitals.battery, 0) / total;
 
     return {
       residents: {
@@ -24,8 +40,8 @@ export class DashboardService {
         emergency,
       },
       alerts: {
-        unacknowledged: MOCK_ALERTS.filter(a => !a.acknowledged).length,
-        total: MOCK_ALERTS.length,
+        unacknowledged: alerts.filter(a => !a.acknowledged).length,
+        total: alerts.length,
       },
       vitals: {
         avgHeartRate: Math.round(avgHeartRate),
@@ -34,14 +50,14 @@ export class DashboardService {
         avgBattery: Math.round(avgBattery),
       },
       falls: {
-        recent: MOCK_FALLS.filter(f => f.responseStatus === 'pending').length,
-        total: MOCK_FALLS.length,
+        recent: falls.filter(f => f.responseStatus === 'pending').length,
+        total: falls.length,
       },
       activities: {
-        recent: MOCK_ACTIVITIES.slice(0, 5),
+        recent: activities,
       },
       notifications: {
-        unread: MOCK_NOTIFICATIONS.filter(n => !n.read).length,
+        unread: notifications.filter(n => !n.read).length,
       },
     };
   }

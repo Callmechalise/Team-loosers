@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+﻿import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ResidentsService } from './residents.service';
 
@@ -9,13 +9,17 @@ export class ResidentsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all residents' })
-  findAll() {
+  async findAll() {
     return this.residentsService.findAll();
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get resident by ID' })
-  findOne(@Param('id') id: string) {
-    return this.residentsService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const resident = await this.residentsService.findOne(id);
+    if (!resident) {
+      throw new NotFoundException('Resident not found');
+    }
+    return resident;
   }
 }

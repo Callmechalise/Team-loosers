@@ -15,13 +15,20 @@ export class ResidentsService {
   }
 
   async findOne(id: string): Promise<Resident | null> {
-    return this.residentModel.findById(id).exec();
+    try {
+      return this.residentModel.findById(id).exec();
+    } catch {
+      // If it's not a valid ObjectId, return null
+      return null;
+    }
   }
 
   async seedDatabase(): Promise<void> {
     const count = await this.residentModel.countDocuments();
     if (count === 0) {
-      await this.residentModel.insertMany(MOCK_RESIDENTS);
+      // Remove the id field from mock data so MongoDB generates its own
+      const residentsToInsert = MOCK_RESIDENTS.map(({ id, ...rest }) => rest);
+      await this.residentModel.insertMany(residentsToInsert);
       console.log('✅ Residents seeded successfully!');
     }
   }

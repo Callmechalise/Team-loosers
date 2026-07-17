@@ -1,22 +1,37 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { ActivityEvent, ActivityDocument } from './schemas/activity.schema';
 import { MOCK_ACTIVITIES } from '../../common/constants/mock-data';
-import { ActivityEvent } from '../../common/types';
 
 @Injectable()
 export class ActivitiesService {
-  private activities: ActivityEvent[] = MOCK_ACTIVITIES;
+  constructor(
+    @InjectModel(ActivityEvent.name) private activityModel: Model<ActivityDocument>,
+  ) {}
 
-  findAll(): ActivityEvent[] {
-    return this.activities;
+  async findAll(): Promise<ActivityEvent[]> {
+    return this.activityModel.find().exec();
   }
 
-  findOne(id: string): ActivityEvent | undefined {
-    return this.activities.find(activity => activity.id === id);
+  async findOne(id: string): Promise<ActivityEvent | null> {
+    try {
+      return this.activityModel.findById(id).exec();
+    } catch {
+      return null;
+    }
   }
 
-  getRecent(limit: number = 10): ActivityEvent[] {
-    return this.activities
-      .sort((a, b) => b.time - a.time)
-      .slice(0, limit);
+  async getRecent(limit: number = 10): Promise<ActivityEvent[]> {
+    return this.activityModel.find().sort({ time: -1 }).limit(limit).exec();
+  }
+
+  async seedDatabase(): Promise<void> {
+    const count = await this.activityModel.countDocuments();
+    if (count === 0) {
+      const activitiesToInsert = MOCK_ACTIVITIES.map(({ id, ...rest }) => rest);
+      await this.activityModel.insertMany(activitiesToInsert);
+      console.log('✅ Activities seeded successfully!');
+    }
   }
 }
