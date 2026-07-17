@@ -4,3 +4,5 @@
 jst sh headers
 wires
 buttons 2
+4.7k ohm resistor
+flux
