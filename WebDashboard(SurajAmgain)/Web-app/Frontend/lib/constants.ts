@@ -8,7 +8,7 @@ import {
   Watch,
   FileBarChart,
   Bell,
-  Settings,
+  Settings, MapPin,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -29,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Reports', href: '/reports', icon: FileBarChart },
   { label: 'Notifications', href: '/notifications', icon: Bell, badgeKey: 'unreadNotifications' },
   { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Demo', href: '/demo', icon: MapPin },
 ];
 
 export const ALERT_CONFIG: Record<

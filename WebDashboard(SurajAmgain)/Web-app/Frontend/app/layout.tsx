@@ -1,9 +1,12 @@
+// app/layout.tsx
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import { AppShell } from '@/components/layout/app-shell';
 import { ThemeProvider } from '@/components/providers/theme-provider';
+import { AlertProvider } from '@/components/providers/alert-provider';
+import { AlertNotification } from '@/components/shared/alert-notification';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -32,9 +35,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans`}>
         <ThemeProvider>
-          <Providers>
-            <AppShell>{children}</AppShell>
-          </Providers>
+          <AlertProvider>
+            <Providers>
+              <AppShell>{children}</AppShell>
+              <AlertNotification />
+            </Providers>
+          </AlertProvider>
         </ThemeProvider>
       </body>
     </html>

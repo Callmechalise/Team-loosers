@@ -1,20 +1,22 @@
+// components/layout/topbar.tsx
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+
 import {
-  Menu,
+  Menu,  // ← ADD THIS BACK
   Search,
   Bell,
   LogOut,
   ChevronDown,
   Sun,
   Moon,
-  CircleAlert,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useIoTData } from '@/components/providers/iot-data-provider';
+import { useAlerts } from '@/components/providers/alert-provider';
 import { useCurrentTime, useCountUp } from '@/hooks/use-misc';
 import { CARETAKER_PROFILE } from '@/data/mock-data';
 import { formatTimeAgo } from '@/lib/health-data';
@@ -36,15 +38,14 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const { residents, notifications, markNotificationRead, markAllNotificationsRead } = useIoTData();
+  const { residents } = useIoTData();
+  const { notifications, markAsRead, markAllAsRead, unreadCount } = useAlerts();
   const currentTime = useCurrentTime();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setMounted(true), []);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const searchResults = searchQuery
     ? residents
@@ -164,31 +165,39 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <div className="flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
             <p className="text-sm font-semibold text-gray-800 dark:text-white">Notifications</p>
             <button
-              onClick={markAllNotificationsRead}
+              onClick={markAllAsRead}
               className="text-xs text-blue-500 hover:text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
             >
               Mark all read
             </button>
           </div>
           <div className="max-h-80 overflow-y-auto bg-white dark:bg-gray-800 scrollbar-thin">
-            {notifications.slice(0, 8).map((n) => (
-              <button
-                key={n.id}
-                onClick={() => markNotificationRead(n.id)}
-                className={cn(
-                  'flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-0 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50',
-                  !n.read && 'bg-blue-50/30 dark:bg-blue-900/20'
-                )}
-              >
-                {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-400 dark:bg-blue-400" />}
-                {n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-transparent" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 dark:text-white">{n.title}</p>
-                  <p className="truncate text-xs text-gray-500 dark:text-gray-400">{n.message}</p>
-                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">{formatTimeAgo(n.time)}</p>
-                </div>
-              </button>
-            ))}
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Bell className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No notifications</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Alerts will appear here</p>
+              </div>
+            ) : (
+              notifications.slice(0, 8).map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => markAsRead(n.id)}
+                  className={cn(
+                    'flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-0 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50',
+                    !n.read && 'bg-blue-50/30 dark:bg-blue-900/20'
+                  )}
+                >
+                  {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-400 dark:bg-blue-400" />}
+                  {n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-transparent" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">{n.title}</p>
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">{n.message}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">{formatTimeAgo(n.timestamp)}</p>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
           <Link 
             href="/notifications" 
