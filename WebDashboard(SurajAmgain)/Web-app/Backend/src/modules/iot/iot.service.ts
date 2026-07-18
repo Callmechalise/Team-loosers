@@ -2,16 +2,18 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { IotData, IotDataDocument } from './schemas/iot-data.schema';
+import { EmergencyAlert, EmergencyAlertDocument } from './schemas/emergency-alert.schema';
 import { HealthDataDto } from './dto/health-data.dto';
+import { EmergencyAlertDto } from './dto/emergency-alert.dto';
 
 @Injectable()
 export class IotService {
   constructor(
     @InjectModel(IotData.name) private iotDataModel: Model<IotDataDocument>,
+    @InjectModel(EmergencyAlert.name) private emergencyAlertModel: Model<EmergencyAlertDocument>,
   ) {}
 
   async receiveData(healthData: HealthDataDto): Promise<any> {
-    // Log received data in ESP32 format
     console.log('\n========== Received Data ==========');
     console.log('Card ID      :', healthData.card_id);
     console.log('Heart Rate   :', healthData.heartrate);
@@ -23,10 +25,8 @@ export class IotService {
     console.log('Received At  :', new Date());
     console.log('===================================\n');
 
-    // Validate and save data
     const savedData = await this.saveIotData(healthData);
     
-    // Check for alerts (only if data is valid)
     if (this.isValidData(healthData)) {
       await this.checkForAlerts(healthData);
     }
@@ -38,17 +38,72 @@ export class IotService {
     };
   }
 
+  async receiveAlert(alertData: EmergencyAlertDto): Promise<any> {
+    console.log('\n🚨🚨🚨 EMERGENCY ALERT 🚨🚨🚨');
+    console.log('Card ID      :', alertData.card_id);
+    console.log('Alert Type   :', alertData.msg);
+    console.log('Coordinates  :', alertData.lat, alertData.lng);
+    console.log('Timestamp    :', alertData.timestamp);
+    console.log('Received At  :', new Date());
+    console.log('🚨🚨🚨==========================🚨🚨🚨\n');
+
+    const savedAlert = await this.saveEmergencyAlert(alertData);
+
+    const response = {
+      Alert: true,
+      msg: alertData.msg || 'Emergency Alert',
+      lat: alertData.lat || 0,
+      lng: alertData.lng || 0,
+      timestamp: alertData.timestamp || Date.now(),
+      card_id: alertData.card_id,
+      status: 'pending'
+    };
+
+    return {
+      status: 'success',
+      message: 'Emergency alert received',
+      alert: response,
+    };
+  }
+
+  private async saveEmergencyAlert(alertData: EmergencyAlertDto): Promise<EmergencyAlert> {
+    const newAlert = new this.emergencyAlertModel({
+      card_id: alertData.card_id,
+      msg: alertData.msg || 'Emergency Alert',
+      lat: alertData.lat || 0,
+      lng: alertData.lng || 0,
+      timestamp: alertData.timestamp || Date.now(),
+      receivedAt: new Date(),
+      acknowledged: false,
+      status: 'pending',
+    });
+    
+    return await newAlert.save();
+  }
+
+  async getAllAlerts(): Promise<EmergencyAlert[]> {
+    return this.emergencyAlertModel
+      .find()
+      .sort({ timestamp: -1 })
+      .exec();
+  }
+
+  async getDeviceAlerts(cardId: string): Promise<EmergencyAlert[]> {
+    return this.emergencyAlertModel
+      .find({ card_id: cardId })
+      .sort({ timestamp: -1 })
+      .exec();
+  }
+
   private isValidData(healthData: HealthDataDto): boolean {
     const { heartrate, spo2 } = healthData;
     
-    // Check if heart rate is valid (30-200 BPM)
     if (heartrate !== undefined && heartrate !== null && heartrate > 0) {
       if (heartrate < 30 || heartrate > 200) {
         return false;
       }
     }
     
-    // Check if SpO2 is valid (70-100%)
     if (spo2 !== undefined && spo2 !== null && spo2 > 0) {
       if (spo2 < 70 || spo2 > 100) {
         return false;
@@ -81,14 +136,12 @@ export class IotService {
   private async checkForAlerts(healthData: HealthDataDto): Promise<void> {
     const { card_id, heartrate, spo2 } = healthData;
     
-    // Skip if no valid data
     if (!heartrate && !spo2) return;
 
     let alertType: string | null = null;
     let severity = 'info';
     let message = '';
 
-    // Check for abnormal heart rate
     if (heartrate && heartrate > 0) {
       if (heartrate > 120) {
         alertType = 'heart-rate-high';
@@ -101,7 +154,6 @@ export class IotService {
       }
     }
 
-    // Check for low SpO2
     if (spo2 && spo2 > 0) {
       if (spo2 < 90 && spo2 >= 70) {
         alertType = 'spo2-low';
@@ -110,21 +162,18 @@ export class IotService {
       }
     }
 
-    // Check for fall detection
     if (healthData.fallDetected) {
       alertType = 'fall-detected';
       severity = 'critical';
       message = 'Fall detected! Immediate attention required.';
     }
 
-    // Check for button alert
     if (healthData.btn_alert) {
       alertType = 'btn_alert';
       severity = 'critical';
       message = 'Emergency button pressed! Immediate attention required.';
     }
 
-    // Create alert if conditions met
     if (alertType) {
       console.log('⚠️ ALERT - ' + severity + ': ' + message + ' (Card: ' + card_id + ')');
     }
@@ -170,8 +219,8 @@ export class IotService {
       .find({
         card_id: cardId,
         timestamp: { 
-          '$gte': startTime, 
-          '$lte': endTime 
+          $gte: startTime, 
+          $lte: endTime 
         },
       })
       .sort({ timestamp: -1 })

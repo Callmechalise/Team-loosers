@@ -91,7 +91,7 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-xl font-bold text-gray-900 dark:text-white">{CARETAKER_PROFILE.name}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{CARETAKER_PROFILE.role}</p>
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => toast.success('Photo upload', { description: 'Choose a new profile photo' })}>
+                    <Button  className="mt-2" onClick={() => toast.success('Photo upload', { description: 'Choose a new profile photo' })}>
                       Change Photo
                     </Button>
                   </div>
@@ -194,10 +194,10 @@ export default function SettingsPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">{ct.role} · {ct.shift}</p>
                       </div>
                       <div className="flex gap-1.5">
-                        <Button variant="outline" size="sm" onClick={() => toast.success(`Calling ${ct.name}`, { description: ct.phone })}>
+                        <Button  onClick={() => toast.success(`Calling ${ct.name}`, { description: ct.phone })}>
                           <Phone className="h-3.5 w-3.5" /> Call
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => toast.success(`Emailing ${ct.name}`, { description: ct.email })}>
+                        <Button  onClick={() => toast.success(`Emailing ${ct.name}`, { description: ct.email })}>
                           <Mail className="h-3.5 w-3.5" /> Email
                         </Button>
                       </div>
@@ -211,7 +211,7 @@ export default function SettingsPage() {
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">Dr. Patricia Wells</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Attending Physician · +1 555-0200</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => toast.success('Calling Dr. Wells')}>
+                    <Button onClick={() => toast.success('Calling Dr. Wells')}>
                       <Phone className="h-3.5 w-3.5" /> Call
                     </Button>
                   </div>
@@ -327,7 +327,7 @@ export default function SettingsPage() {
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900 dark:text-white">User Management</h2>
-                  <Button size="sm" onClick={() => toast.success('Add user', { description: 'New user invitation sent' })}>
+                  <Button  onClick={() => toast.success('Add user', { description: 'New user invitation sent' })}>
                     <Users className="h-4 w-4 mr-1" /> Add User
                   </Button>
                 </div>
@@ -352,7 +352,7 @@ export default function SettingsPage() {
                       )}>
                         {ct.role}
                       </span>
-                      <Button variant="ghost" size="sm" onClick={() => toast.success('Editing permissions', { description: ct.name })}>
+                      <Button onClick={() => toast.success('Editing permissions', { description: ct.name })}>
                         Edit
                       </Button>
                     </div>
